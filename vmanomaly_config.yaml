@@ -1,0 +1,94 @@
+# ============================================================
+# VictoriaMetrics Anomaly Detection – Konfigurationsdatei
+# ============================================================
+
+# VictoriaMetrics Verbindung
+victoriametrics:
+  url: "http://ubuntu:8428"
+  timeout: 30                      # HTTP-Timeout in Sekunden
+
+# Anomalie-Erkennung: Abfrage-Konfiguration
+queries:
+  - name: "system_load5"
+    promql: "system_load5{host='ubuntu'}"
+    description: "System Load"
+
+  - name: "mem_used_percent{host='ubuntu'}"
+    promql: "mem_used_percent"
+    description: "Memory-Auslastung in %"
+
+  - name: "netstat_tcp_established"
+    promql: "netstat_tcp_established{host='ubuntu'}"
+    description: "netstat_tcp_established"
+
+  - name: "network_traffic_in"
+    promql: 'rate(net_bytes_recv{interface=~"wlp1s0|eth0|wlp4s0",host="ubuntu"})'
+    description: "Netzwerk-Eingangsrate"
+
+  - name: "network_traffic_sent"
+    promql: 'rate(net_bytes_sent{interface=~"wlp1s0|eth0|wlp4s0",host="ubuntu"})'
+    description: "Netzwerk-Ausgangrate"
+
+
+# Prophet-Modell Konfiguration
+model:
+  # Konfidenzintervall: 0.95 = 95% → engeres Band, mehr Anomalien
+  #                    0.99 = 99% → weiteres Band, weniger Anomalien
+  interval_width: 0.99
+
+  # Saisonalitäten aktivieren
+  yearly_seasonality: false        # Nur sinnvoll bei > 1 Jahr Daten
+  weekly_seasonality: true
+  daily_seasonality: true
+
+  # Sensitivität für Trendwechsel (0.001=starr, 0.5=sehr flexibel)
+  changepoint_prior_scale: 0.05
+
+  # Sensitivität für Saisonalität
+  seasonality_prior_scale: 10.0
+
+  # Trainings-Zeitraum (historische Daten)
+  training_lookback: "7d"          # Wie weit zurück Daten geladen werden
+
+  # Prognose-Horizont für zukünftige Punkte
+  forecast_horizon: "1h"
+
+# Scheduling
+scheduler:
+  # Wie oft wird die Anomalie-Erkennung ausgeführt?
+  interval_minutes: 5
+
+  # Wann beginnt die Ausführung (now = sofort)
+  start: "now"
+
+# Alerting
+alerting:
+  enabled: true
+
+  # Schwellenwert: Wie viele Std.-Abw. gilt als Anomalie?
+  # Ergänzend zum Prophet-Konfidenzintervall
+  zscore_threshold: 3.0
+
+  # Webhook für Alerts (z. B. Alertmanager, Slack)
+  webhook:
+    enabled: false
+    url: "http://alertmanager:9093/api/v1/alerts"
+    timeout: 10
+
+  # Ausgabe in Datei
+  log_anomalies: true
+  log_file: "anomalies.log"
+
+# Ergebnisse zurück nach VictoriaMetrics schreiben
+writer:
+  enabled: true
+  # Anomalie-Score wird als neue Metrik geschrieben
+  # metric_name_pattern: "<query_name>_anomaly_score"
+  # Wert: 1 = Anomalie, 0 = Normal, 0-1 = Score
+  metric_prefix: "vmanomaly"
+
+# Logging
+logging:
+  level: "INFO"                    # DEBUG, INFO, WARNING, ERROR
+  format: "%(asctime)s [%(levelname)s] %(message)s"
+  file: "vmanomaly.log"
