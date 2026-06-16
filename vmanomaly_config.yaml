@@ -2,9 +2,10 @@
 # VictoriaMetrics Anomaly Detection – Konfigurationsdatei
 # ============================================================
 
-# VictoriaMetrics Verbindung
+# VictoriaMetrics Verbindung (Cluster-Modus: getrennte URLs für Lesen/Schreiben)
 victoriametrics:
-  url: "http://ubuntu:8428"
+  read_url: "http://vmselect:8481/select/0/prometheus"   # vmselect
+  write_url: "http://vminsert:8480/insert/0/prometheus"  # vminsert
   timeout: 30                      # HTTP-Timeout in Sekunden
 
 # Anomalie-Erkennung: Abfrage-Konfiguration
@@ -27,7 +28,7 @@ queries:
 
   - name: "network_traffic_sent"
     promql: 'rate(net_bytes_sent{interface=~"wlp1s0|eth0|wlp4s0",host="ubuntu"})'
-    description: "Netzwerk-Ausgangrate"
+    description: "Netzwerk-Ausgangsrate"
 
 
 # Prophet-Modell Konfiguration
@@ -53,6 +54,26 @@ model:
   # Prognose-Horizont für zukünftige Punkte
   forecast_horizon: "1h"
 
+  # Feiertage & besondere Ereignisse (Prophet lernt deren Effekt automatisch)
+  # Ohne diesen Block wird kein Feiertagsmodell verwendet.
+  #
+  # holidays:
+  #   country: "DE"          # ISO-3166-1 Ländercode  (DE, AT, CH, ...)
+  #   province: "BY"         # Optional: Bundesland-Kürzel
+  #                          #   DE: BY BW BE BB HB HE HH MV NI NW RP SH SL SN ST TH
+  #                          #   AT: 1 2 3 4 5 6 7 8 9  (Bundesländer-Nummern)
+  #   custom:                # Optional: eigene wiederkehrende/einmalige Ereignisse
+  #     - name: "Betriebsferien"
+  #       dates:
+  #         - "2025-08-04"
+  #         - "2025-08-05"
+  #       lower_window: 0    # Tage VOR dem Ereignis, die ebenfalls erfasst werden
+  #       upper_window: 0    # Tage NACH dem Ereignis
+  #     - name: "Black Friday"
+  #       dates: ["2025-11-28"]
+  #       lower_window: -1
+  #       upper_window: 1
+
 # Scheduling
 scheduler:
   # Wie oft wird die Anomalie-Erkennung ausgeführt?
@@ -64,10 +85,6 @@ scheduler:
 # Alerting
 alerting:
   enabled: true
-
-  # Schwellenwert: Wie viele Std.-Abw. gilt als Anomalie?
-  # Ergänzend zum Prophet-Konfidenzintervall
-  zscore_threshold: 3.0
 
   # Webhook für Alerts (z. B. Alertmanager, Slack)
   webhook:
